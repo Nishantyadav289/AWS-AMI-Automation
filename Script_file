@@ -1,0 +1,46 @@
+#!/bin/bash
+
+# Step 1: Prompt for EC2 instance ID
+read -p "Enter your EC2 instance ID: " INSTANCE_ID
+
+# Step 2: Prompt for AMI name
+read -p "Enter a name for your AMI: " AMI_NAME
+
+# Set description
+DESCRIPTION="AMI created from instance $INSTANCE_ID with name $AMI_NAME"
+
+# Step 3: Create the AMI
+echo "Creating AMI..."
+AMI_ID=$(aws ec2 create-image --instance-id "$INSTANCE_ID" --name "$AMI_NAME" --description "$DESCRIPTION" --no-reboot --query "ImageId" --output text)
+
+# Check if the AMI creation command was successful
+if [ $? -eq 0 ]; then
+    echo "AMI creation initiated successfully. AMI ID: $AMI_ID"
+else
+    echo "Failed to initiate AMI creation. Check your inputs or AWS CLI configuration."
+    exit 1
+fi
+
+# Step 4: Check AMI status
+read -p "Press Enter to check the AMI status or type 'n' to exit: " CONTINUE
+if [[ "$CONTINUE" == "n" ]]; then
+    echo "Exiting..."
+    exit 0
+fi
+
+while true; do
+    AMI_STATUS=$(aws ec2 describe-images --image-ids "$AMI_ID" --query "Images[0].State" --output text)
+    
+    echo "Current AMI Status: $AMI_STATUS"
+    
+    if [[ "$AMI_STATUS" == "available" ]]; then
+        echo "AMI is now available and ready for use."
+        break
+    elif [[ "$AMI_STATUS" == "failed" ]]; then
+        echo "AMI creation failed."
+        break
+    else
+        echo "AMI is still in progress. Checking again in 60 seconds..."
+        sleep 60
+    fi
+done
